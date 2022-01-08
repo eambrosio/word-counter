@@ -1,41 +1,42 @@
 import CounterUtils.parseJson
-import akka.NotUsed
+import WordCounterActor.Count
 import akka.actor.ActorSystem
-import akka.stream.{ActorAttributes, IOResult, Supervision}
-import akka.stream.alpakka.json.scaladsl.JsonReader
-import akka.stream.scaladsl.{Flow, JsonFraming, Sink, Source, StreamConverters}
+import akka.stream.IOResult
+import akka.stream.scaladsl.{Sink, Source, StreamConverters}
 import akka.util.ByteString
-
-import scala.concurrent.Future
 import io.circe.Decoder
 import io.circe.generic.auto._
-import spray.json.DefaultJsonProtocol
-import spray.json._
 
-import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration, SECONDS}
+import scala.concurrent.Future
+import scala.concurrent.duration.{FiniteDuration, SECONDS}
 
 object WordCount extends App {
   import MyJsonProtocol._
 
   implicit val as: ActorSystem = ActorSystem("WordCount")
 
-//  val results = Source
-//    .single(ByteString.fromString("baseDocument"))
-//    .via(JsonReader.select("$.rows[*].doc"))
-//    .runWith(Sink.seq)
-
   val stdinSource: Source[ByteString, Future[IOResult]] =
     StreamConverters.fromInputStream(() => System.in)
+
   val stdoutSink: Sink[ByteString, Future[IOResult]] =
     StreamConverters.fromOutputStream(() => System.out)
 
+  val wordCounterActor = as.actorOf(WordCounterActor.props())
 
   stdinSource
     .via(parseJson)
+    .groupBy(Int.MaxValue, event => event.event_type)
+    .map(e => (e.event_type, e.data.split("\\\\w+").length.toLong))
     .groupedWithin(1000, FiniteDuration(5, SECONDS))
-    .map(_.size)
-    .runForeach(s => println(s"the size was: $s"))
-
+    .map {
+      data =>
+        println(data)
+        data
+    }
+    .map(data => wordCounterActor ! Count((data.head._1, data.map(_._2).sum)))
+    .mergeSubstreams
+//    .runForeach(s => println(s"the number of words was: $s"))
+    .run()
 
 //      Source(List("""{"id":"1"}""","""{"iddd":"2"}""","""{"id":"3"}\n"""))
 //        .map(ByteString.fromString)
