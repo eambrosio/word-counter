@@ -4,12 +4,11 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
 import akka.stream.IOResult
+import akka.stream.alpakka.slick.scaladsl.{Slick, SlickSession}
 import akka.stream.scaladsl.{Sink, Source, StreamConverters}
 import akka.util.{ByteString, Timeout}
 import com.typesafe.scalalogging.LazyLogging
 import http.{CounterEndpoint, CounterServiceImpl}
-import io.circe.Decoder
-import io.circe.generic.auto._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -21,6 +20,9 @@ object WordCount extends App with LazyLogging {
 
   implicit val timeout: Timeout = Timeout.durationToTimeout(FiniteDuration(1, MINUTES))
   implicit val as: ActorSystem  = ActorSystem("WordCount")
+
+  implicit val session: SlickSession = SlickSession.forConfig("slick-postgres")
+  import session.profile.api._
 
   val wordCounterActor        = as.actorOf(WordCounterActor.props())
   private val counterService  = CounterServiceImpl(wordCounterActor)
@@ -42,12 +44,12 @@ object WordCount extends App with LazyLogging {
         data
     }
 //    .map(data => wordCounterActor ! Count((data.head._1, data.map(_._2).sum)))
-    .map(data => wordCounterActor ! WordCounterActor.AddCount(data))
+    .map(persistData)
     .mergeSubstreams
 //    .runForeach(s => println(s"the number of words was: $s"))
     .run()
 
-//  startHttpServer(endpoint.route)
+  //  startHttpServer(endpoint.route)
 //      Source(List("""{"id":"1"}""","""{"iddd":"2"}""","""{"id":"3"}\n"""))
 //        .map(ByteString.fromString)
 ////         .single(ByteString.fromString("""{"id":"1"}"""))
@@ -55,6 +57,9 @@ object WordCount extends App with LazyLogging {
 //    .groupedWithin(1000, FiniteDuration(5, SECONDS))
 //    .map(_.size)
 //    .runForeach(s => println(s"the size was: $s"))
+
+  private def persistData(data: Seq[(String, Long)]) =
+    wordCounterActor ! WordCounterActor.AddCount(data)
 
   private def startServer(routes: Route): Unit = {
     val futureBinding = Http().newServerAt("0.0.0.0", 8080).bind(routes)
@@ -66,6 +71,7 @@ object WordCount extends App with LazyLogging {
       case Failure(ex)      =>
         logger.error("Failed to bind HTTP endpoint, terminating system", ex)
         as.terminate()
+        as.registerOnTermination(() => session.close())
     }
   }
 
