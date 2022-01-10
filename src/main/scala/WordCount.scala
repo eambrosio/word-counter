@@ -42,7 +42,7 @@ object WordCount extends App with LazyLogging {
         data
     }
 //    .map(data => wordCounterActor ! Count((data.head._1, data.map(_._2).sum)))
-    .map(data => wordCounterActor ! WordCounterActor.Count(data))
+    .map(data => wordCounterActor ! WordCounterActor.AddCount(data))
     .mergeSubstreams
 //    .runForeach(s => println(s"the number of words was: $s"))
     .run()

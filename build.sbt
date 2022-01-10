@@ -20,6 +20,8 @@ val akka = Seq(
   "com.typesafe.akka"          %% "akka-http"                          % AkkaHTTPVersion,
   "com.typesafe.akka"          %% "akka-http-spray-json"               % AkkaHTTPVersion,
   "com.lightbend.akka"         %% "akka-stream-alpakka-json-streaming" % "3.0.4",
+  "com.typesafe.akka"          %% "akka-persistence"                   % AkkaVersion,
+  "com.typesafe.akka"          %% "akka-persistence-testkit"           % AkkaVersion % Test,
   "com.typesafe.akka"          %% "akka-stream-testkit"                % AkkaVersion % Test
 )
 

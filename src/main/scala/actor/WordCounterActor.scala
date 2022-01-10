@@ -1,16 +1,17 @@
 package actor
 
-import actor.WordCounterActor.{Count, RetrieveStatus}
+import actor.WordCounterActor.{AddCount, RetrieveStatus}
 import akka.actor.{Actor, Props}
+import model.CounterStatus
 
 class WordCounterActor extends Actor {
 
-  override def receive: Receive = running(Map[String, Long]())
+  override def receive: Receive = running(CounterStatus.empty())
 
-  def running(counterStatus: Map[String, Long]): Receive = {
-    case Count(data)    =>
+  def running(counterStatus: CounterStatus): Receive = {
+    case AddCount(data) =>
       val (k, v)    = (data.head._1, data.map(_._2).sum)
-      val newStatus = updateStatus(counterStatus, k, v)
+      val newStatus = counterStatus.update(k, v)
       println(newStatus)
       context become running(newStatus)
 
@@ -18,13 +19,10 @@ class WordCounterActor extends Actor {
       sender() ! counterStatus
   }
 
-  private def updateStatus(counterStatus: Map[String, Long], k: String, v: Long): Map[String, Long] =
-    counterStatus.updated(k, counterStatus.getOrElse(k, 0L) + v)
-
 }
 
 object WordCounterActor {
-  case class Count(data: Seq[(String, Long)])
+  case class AddCount(data: Seq[(String, Long)])
   case object RetrieveStatus
 
   def props(): Props = Props(new WordCounterActor)
