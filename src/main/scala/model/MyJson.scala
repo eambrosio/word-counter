@@ -1,3 +1,5 @@
+package model
+
 import spray.json.DefaultJsonProtocol
 
 case class MyJson(event_type: String, data: String)
