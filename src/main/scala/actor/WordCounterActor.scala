@@ -2,12 +2,10 @@ package actor
 
 import actor.WordCounterActor._
 import akka.actor.{Actor, Props}
-import akka.pattern.{ask, pipe}
 import akka.stream.alpakka.slick.scaladsl.SlickSession
 import akka.util.Timeout
 import com.typesafe.scalalogging.LazyLogging
 import model.CounterStatus
-import slick.sql
 import spray.json._
 
 import scala.concurrent.ExecutionContext
@@ -16,25 +14,16 @@ import scala.util.{Failure, Success}
 class WordCounterActor()(implicit session: SlickSession, ec: ExecutionContext, t: Timeout)
     extends Actor
     with LazyLogging {
-  import CounterStatus._
   import session.profile.api._
-
-//  override def receive: Receive = running(CounterStatus.empty())
 
   def running(counterStatus: CounterStatus): Receive = {
     case UpdateCount(data)      =>
       val (k, v)    = (data.head._1, data.map(_._2).sum)
       val newStatus = counterStatus.update(k, v)
-      println(newStatus)
-//      self ! PersistData(newStatus)
       context become running(newStatus)
 
     case RetrieveStatus      =>
       sender() ! counterStatus
-
-//    case PersistData(status) =>
-//      session.db.run(sqlu"INSERT INTO counter_status(status) values(${status.toJson.compactPrint})")
-//      sender() ! DataPersisted
 
     case PersistData =>
       session.db.run(sqlu"INSERT INTO counter_status(status) values(${counterStatus.toJson.compactPrint})")

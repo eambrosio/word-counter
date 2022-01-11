@@ -12,9 +12,3 @@ object CounterStatus extends DefaultJsonProtocol {
 
   implicit val counterStatusFormat = jsonFormat1(CounterStatus.apply)
 }
-
-//
-//object CounterStatusProtocol extends DefaultJsonProtocol {
-//
-//}
-//}

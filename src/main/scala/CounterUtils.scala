@@ -1,20 +1,61 @@
+import WordCount.{as, logger, session, wordCounterActor}
+import actor.WordCounterActor
+import actor.WordCounterActor.RetrieveData
 import akka.NotUsed
-import akka.stream.scaladsl.{Flow, JsonFraming}
-import akka.stream.{ActorAttributes, Supervision}
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.server.Route
+import akka.stream.scaladsl.{Flow, Framing, JsonFraming}
+import akka.stream.{ActorAttributes, Attributes, Supervision}
 import akka.util.ByteString
+import com.typesafe.scalalogging.LazyLogging
 import spray.json._
 
-object CounterUtils {
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success}
+
+object CounterUtils extends LazyLogging {
+
+  def validLine(data: ByteString): Boolean =
+    data.startsWith(ByteString("{")) && data.endsWith(ByteString("}"))
+
+  def lineExtractor: Flow[ByteString, ByteString, NotUsed]                   =
+    Framing.delimiter(ByteString("\n"), Int.MaxValue, true)
 
   def parseJson[T](implicit jr: JsonReader[T]): Flow[ByteString, T, NotUsed] =
     JsonFraming
       .objectScanner(Int.MaxValue)
       .map(_.utf8String.parseJson.convertTo[T])
-      .withAttributes(ActorAttributes.supervisionStrategy(Supervision.resumingDecider))
+      .withAttributes(ActorAttributes.supervisionStrategy(Supervision.restartingDecider))
+      .log(name = "parser-log")
+      .addAttributes(
+        Attributes.logLevels(
+          onElement = Attributes.LogLevels.Info,
+          onFinish = Attributes.LogLevels.Info,
+          onFailure = Attributes.LogLevels.Error
+        )
+      )
 
-  //      .map(JsonReader.select("$.rows[*]"))
+  def retrieveData: Unit =
+    wordCounterActor ! RetrieveData
 
-  def capitaliseByteString(byteString: ByteString): ByteString =
-    ByteString(byteString.utf8String.toUpperCase)
+  def persistData: Unit =
+    wordCounterActor ! WordCounterActor.PersistData
+
+  def updateData(data: Seq[(String, Long)]): Unit =
+    wordCounterActor ! WordCounterActor.UpdateCount(data)
+
+  def startServer(routes: Route): Unit = {
+    val futureBinding = Http().newServerAt("0.0.0.0", 8080).bind(routes)
+
+    futureBinding.onComplete {
+      case Success(binding) =>
+        val address = binding.localAddress
+        logger.info("Server online at http://{}:{}/", address.getHostString, address.getPort)
+      case Failure(ex)      =>
+        logger.error("Failed to bind HTTP endpoint, terminating system", ex)
+        as.terminate()
+        as.registerOnTermination(() => session.close())
+    }
+  }
 
 }
