@@ -22,19 +22,23 @@ class WordCounterActor()(implicit session: SlickSession, ec: ExecutionContext, t
 //  override def receive: Receive = running(CounterStatus.empty())
 
   def running(counterStatus: CounterStatus): Receive = {
-    case AddCount(data)      =>
+    case UpdateCount(data)      =>
       val (k, v)    = (data.head._1, data.map(_._2).sum)
       val newStatus = counterStatus.update(k, v)
       println(newStatus)
-      self ! PersistData(newStatus)
+//      self ! PersistData(newStatus)
       context become running(newStatus)
 
     case RetrieveStatus      =>
       sender() ! counterStatus
 
-    case PersistData(status) =>
-      session.db.run(sqlu"INSERT INTO counter_status(status) values(${status.toJson.compactPrint})")
-      sender() ! DataPersisted
+//    case PersistData(status) =>
+//      session.db.run(sqlu"INSERT INTO counter_status(status) values(${status.toJson.compactPrint})")
+//      sender() ! DataPersisted
+
+    case PersistData =>
+      session.db.run(sqlu"INSERT INTO counter_status(status) values(${counterStatus.toJson.compactPrint})")
+      self ! DataPersisted
 
     case DataPersisted       =>
       logger.info("data persisted")
@@ -62,8 +66,8 @@ class WordCounterActor()(implicit session: SlickSession, ec: ExecutionContext, t
 }
 
 object WordCounterActor {
-  case class AddCount(data: Seq[(String, Long)])
-  case class PersistData(status: CounterStatus)
+  case class UpdateCount(data: Seq[(String, Long)])
+  case object PersistData
   case object RetrieveStatus
   case object DataPersisted
   case object RetrieveData

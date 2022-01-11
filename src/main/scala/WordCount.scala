@@ -47,7 +47,8 @@ object WordCount extends App with LazyLogging {
         data
     }
 //    .map(data => wordCounterActor ! Count((data.head._1, data.map(_._2).sum)))
-    .map(persistData)
+    .map(updateData)
+    .map(_ => wordCounterActor ! WordCounterActor.PersistData)
     .mergeSubstreams
 //    .runForeach(s => println(s"the number of words was: $s"))
     .run()
@@ -61,8 +62,12 @@ object WordCount extends App with LazyLogging {
 //    .map(_.size)
 //    .runForeach(s => println(s"the size was: $s"))
 
-  private def persistData(data: Seq[(String, Long)]) =
-    wordCounterActor ! WordCounterActor.AddCount(data)
+  private def updateData(data: Seq[(String, Long)]) =
+    wordCounterActor ! WordCounterActor.UpdateCount(data)
+
+  private def persistData(): () => Unit = {
+    () => wordCounterActor ! WordCounterActor.PersistData
+  }
 
   private def startServer(routes: Route): Unit = {
     val futureBinding = Http().newServerAt("0.0.0.0", 8080).bind(routes)
