@@ -1,5 +1,6 @@
 import CounterUtils.parseJson
 import actor.WordCounterActor
+import actor.WordCounterActor.RetrieveData
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
@@ -32,6 +33,8 @@ object WordCount extends App with LazyLogging {
 
   val stdinSource: Source[ByteString, Future[IOResult]] = StreamConverters.fromInputStream(() => System.in)
   val stdoutSink: Sink[ByteString, Future[IOResult]]    = StreamConverters.fromOutputStream(() => System.out)
+
+  wordCounterActor ! RetrieveData
 
   stdinSource
     .via(parseJson)
