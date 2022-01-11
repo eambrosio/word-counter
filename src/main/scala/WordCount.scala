@@ -19,13 +19,19 @@ object WordCount extends App with LazyLogging {
   implicit val as: ActorSystem       = ActorSystem("WordCount")
   implicit val session: SlickSession = SlickSession.forConfig("slick-postgres")
 
-  val wordCounterActor                                  = as.actorOf(WordCounterActor.props())
+  val WindowDurationInSeconds: FiniteDuration =
+    FiniteDuration(sys.env.getOrElse("WINDOW_DURATION", "5").toLong, SECONDS)
+
+  val wordCounterActor                        = as.actorOf(WordCounterActor.props())
+  private val counterService                  = CounterServiceImpl(wordCounterActor)
+  private val counterEndpoint                 = CounterEndpoint(counterService)
+
   val stdinSource: Source[ByteString, Future[IOResult]] = StreamConverters.fromInputStream(() => System.in)
-  private val counterService                            = CounterServiceImpl(wordCounterActor)
-  private val counterEndpoint                           = CounterEndpoint(counterService)
 
   startServer(counterEndpoint.route)
   retrieveData
+
+  logger.info(s"Window duration: $WindowDurationInSeconds")
 
   stdinSource
     .via(lineExtractor)
@@ -33,11 +39,10 @@ object WordCount extends App with LazyLogging {
     .via(parseJson)
     .groupBy(Int.MaxValue, event => event.event_type)
     .map(e => (e.event_type, e.data.split("\\\\w+").length.toLong))
-    .groupedWithin(1000, FiniteDuration(5, SECONDS))
+    .groupedWithin(1000, WindowDurationInSeconds)
     .map(updateData)
     .map(_ => persistData)
     .mergeSubstreams
     .run()
-
 
 }
