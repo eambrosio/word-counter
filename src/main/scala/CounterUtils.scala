@@ -1,7 +1,8 @@
-import WordCount.{as, logger, session, wordCounterActor}
+import WordCount.{as, session}
 import actor.WordCounterActor
 import actor.WordCounterActor.RetrieveData
 import akka.NotUsed
+import akka.actor.ActorRef
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
 import akka.stream.scaladsl.{Flow, Framing, JsonFraming}
@@ -35,17 +36,17 @@ object CounterUtils extends LazyLogging {
         )
       )
 
-  def retrieveData: Unit =
-    wordCounterActor ! RetrieveData
+  def retrieveData(actor:ActorRef): Unit =
+    actor ! RetrieveData
 
-  def persistData: Unit =
-    wordCounterActor ! WordCounterActor.PersistData
+  def persistData(actor:ActorRef): Unit =
+    actor ! WordCounterActor.PersistData
 
-  def updateData(data: Seq[(String, Long)]): Unit =
-    wordCounterActor ! WordCounterActor.UpdateCount(data)
+  def updateData(actor:ActorRef)(data: Seq[(String, Long)]): Unit =
+    actor ! WordCounterActor.UpdateCount(data)
 
   def startServer(routes: Route): Unit = {
-    val futureBinding = Http().newServerAt("0.0.0.0", 8080).bind(routes)
+    val futureBinding = Http().newServerAt("0.0.0.0", 8000).bind(routes)
 
     futureBinding.onComplete {
       case Success(binding) =>

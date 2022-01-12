@@ -29,7 +29,7 @@ object WordCount extends App with LazyLogging {
   val stdinSource: Source[ByteString, Future[IOResult]] = StreamConverters.fromInputStream(() => System.in)
 
   startServer(counterEndpoint.route)
-  retrieveData
+  retrieveData(wordCounterActor)
 
   logger.info(s"Window duration: $WindowDurationInSeconds")
 
@@ -40,8 +40,8 @@ object WordCount extends App with LazyLogging {
     .groupBy(Int.MaxValue, event => event.event_type)
     .map(e => (e.event_type, e.data.split("\\\\w+").length.toLong))
     .groupedWithin(1000, WindowDurationInSeconds)
-    .map(updateData)
-    .map(_ => persistData)
+    .map(updateData(wordCounterActor))
+    .map(_ => persistData(wordCounterActor))
     .mergeSubstreams
     .run()
 
