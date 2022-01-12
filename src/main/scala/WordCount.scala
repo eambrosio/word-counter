@@ -28,7 +28,7 @@ object WordCount extends App with LazyLogging {
 
   val stdinSource: Source[ByteString, Future[IOResult]] = StreamConverters.fromInputStream(() => System.in)
 
-  startServer(counterEndpoint.route)
+  startServer(counterEndpoint.routes)
   retrieveData(wordCounterActor)
 
   logger.info(s"Window duration: $WindowDurationInSeconds")

@@ -10,7 +10,7 @@ import scala.concurrent.Future
 case class CounterEndpoint(counterService: CounterService[Future])(implicit t: Timeout)
     extends EndpointDirectives {
 
-  val route: Route = getCounterStatus
+  val routes: Route = getCounterStatus
 
   def getCounterStatus: Route =
     path("counter") {
