@@ -18,10 +18,11 @@ val akka = Seq(
   "com.typesafe.akka"          %% "akka-http"                          % AkkaHTTPVersion,
   "com.typesafe.akka"          %% "akka-http-spray-json"               % AkkaHTTPVersion,
   "com.lightbend.akka"         %% "akka-stream-alpakka-json-streaming" % "3.0.4",
-  "com.typesafe.akka"          %% "akka-stream-testkit"                % AkkaVersion     % Test,
-  "com.typesafe.akka"          %% "akka-http-testkit"                  % "10.2.6" % Test,
-  "org.scalatest"              %% "scalatest"                          % "3.2.9"         % Test,
-  "org.scalatestplus"          %% "mockito-3-4"                        % "3.2.10.0"      % Test
+  "com.typesafe.akka"          %% "akka-stream-testkit"                % AkkaVersion % Test,
+  "com.typesafe.akka"          %% "akka-testkit"                       % AkkaVersion % Test,
+  "com.typesafe.akka"          %% "akka-http-testkit"                  % "10.2.6"    % Test,
+  "org.scalatest"              %% "scalatest"                          % "3.2.9"     % Test,
+  "org.scalatestplus"          %% "mockito-3-4"                        % "3.2.10.0"  % Test
 )
 
 libraryDependencies ++= akka

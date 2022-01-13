@@ -1,6 +1,6 @@
 import WordCount.{as, session}
 import actor.WordCounterActor
-import actor.WordCounterActor.RetrieveData
+import actor.WordCounterActor.InitStatus
 import akka.NotUsed
 import akka.actor.ActorRef
 import akka.http.scaladsl.Http
@@ -36,11 +36,8 @@ object CounterUtils extends LazyLogging {
         )
       )
 
-  def retrieveData(actor:ActorRef): Unit =
-    actor ! RetrieveData
-
   def persistData(actor:ActorRef): Unit =
-    actor ! WordCounterActor.PersistData
+    actor ! WordCounterActor.PersistStatus
 
   def updateData(actor:ActorRef)(data: Seq[(String, Long)]): Unit =
     actor ! WordCounterActor.UpdateCount(data)

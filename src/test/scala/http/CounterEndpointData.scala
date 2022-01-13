@@ -5,32 +5,33 @@ import akka.util.Timeout
 import model.CounterStatus
 import org.scalatestplus.mockito.MockitoSugar
 
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration.{FiniteDuration, SECONDS}
 
 trait CounterEndpointData extends MockitoSugar {
   implicit val timeout: Timeout = Timeout.durationToTimeout(FiniteDuration(5, SECONDS))
   val mockActor                 = mock[ActorRef]
 
-  val emptyStatusService: CounterService[Future] = new CounterServiceImpl(mockActor) {
+  val emptyCounterService: CounterService[Future] = new CounterActorImpl(mockActor) {
 
-    override def getCurrentStatus()(implicit t: Timeout): Future[Either[String, CounterStatus]] =
+    override def getStatus(): Future[Either[String, CounterStatus]] =
       Future.successful(Right(CounterStatus.empty()))
 
   }
 
-  val nonEmptyStatusService: CounterService[Future] = new CounterServiceImpl(mockActor) {
+  val nonEmptyCounterService: CounterService[Future] = new CounterActorImpl(mockActor) {
 
     val status: Map[String, Long] = Map("foo" -> 3, "bar" -> 1)
 
-    override def getCurrentStatus()(implicit t: Timeout): Future[Either[String, CounterStatus]] =
+    override def getStatus(): Future[Either[String, CounterStatus]] =
       Future.successful(Right(CounterStatus(status)))
 
   }
 
-  val failingStatusService: CounterService[Future] = new CounterServiceImpl(mockActor) {
+  val failingCounterService: CounterService[Future] = new CounterActorImpl(mockActor) {
 
-    override def getCurrentStatus()(implicit t: Timeout): Future[Either[String, CounterStatus]] =
+    override def getStatus(): Future[Either[String, CounterStatus]] =
       Future.successful(Left("unexpected error"))
 
   }

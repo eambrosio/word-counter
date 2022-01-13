@@ -1,65 +1,81 @@
 package actor
 
 import actor.WordCounterActor._
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, ActorLogging, PoisonPill, Props, Stash}
+import akka.pattern.pipe
 import akka.stream.alpakka.slick.scaladsl.SlickSession
 import akka.util.Timeout
 import com.typesafe.scalalogging.LazyLogging
+import http.SnapshotService
 import model.CounterStatus
-import spray.json._
 
-import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success}
+import scala.concurrent.{ExecutionContext, Future}
 
-class WordCounterActor()(implicit session: SlickSession, ec: ExecutionContext, t: Timeout)
-    extends Actor
-    with LazyLogging {
-  import session.profile.api._
+case class WordCounterActor(statusService: SnapshotService[Future])(implicit
+    ec: ExecutionContext,
+    t: Timeout
+) extends Actor
+    with Stash
+    with ActorLogging {
 
   def running(counterStatus: CounterStatus): Receive = {
-    case UpdateCount(data)      =>
+
+    case UpdateCount(data) =>
       val (k, v)    = (data.head._1, data.map(_._2).sum)
       val newStatus = counterStatus.update(k, v)
       context become running(newStatus)
 
-    case RetrieveStatus      =>
-      sender() ! counterStatus
+    case RetrieveStatus    =>
+      sender() ! RetrieveStatusResult(counterStatus)
 
-    case PersistData =>
-      session.db.run(sqlu"INSERT INTO counter_status(status) values(${counterStatus.toJson.compactPrint})")
-      self ! DataPersisted
-
-    case DataPersisted       =>
-      logger.info("data persisted")
+    case PersistStatus     =>
+      statusService.persistStatus(counterStatus)
+      log.info("data persisted")
 
   }
 
-  override def receive: Receive = {
-    case RetrieveData =>
-      val query = sql"SELECT status FROM counter_status WHERE id=(SELECT max(id) FROM counter_status)".as[String]
-      session.db.run(query).onComplete {
-        case Success(value) if value.isEmpty  =>
-          logger.info("no previous status. Starting the actor with empty status...")
-          context become running(CounterStatus.empty())
-        case Success(value) if value.nonEmpty =>
-          logger.info("previous status exists. Starting the actor with previous status...")
-          val status = value.head.parseJson.convertTo[CounterStatus]
-          context become  running(status)
-        case Failure(exception)               =>
-          logger.error(s"error while retrieving last snapshot: ${exception.getMessage}")
-          logger.error("Starting actor with empty status...")
-          context become running(CounterStatus.empty())
-      }
+  override def receive: Receive = initStatus
+
+  def initStatus: Receive = {
+    statusService.retrieveStatus() pipeTo self
+    //        .mapTo[Either[String,CounterStatus]]
+
+    {
+      case Right(status) if status.asInstanceOf[CounterStatus].data.isEmpty  =>
+        log.info("no previous status. Starting the actor with empty status...")
+        context become running(status.asInstanceOf[CounterStatus])
+        log.info("unstashing messages...")
+        unstashAll()
+      case Right(status) if status.asInstanceOf[CounterStatus].data.nonEmpty =>
+        log.info("previous status exists. Starting the actor with previous status...")
+        context become running(status.asInstanceOf[CounterStatus])
+        log.info("unstashing messages...")
+        unstashAll()
+      case Left(msg)                                                         =>
+        log.error(msg.asInstanceOf[String])
+        log.error("No persistence")
+        self ! PoisonPill
+
+      case msg                                                               =>
+        log.info(s"Staging message $msg")
+        stash()
+    }
   }
 
 }
 
 object WordCounterActor {
   case class UpdateCount(data: Seq[(String, Long)])
-  case object PersistData
+  case object PersistStatus
   case object RetrieveStatus
-  case object DataPersisted
-  case object RetrieveData
+  case object InitStatus
+  case object Running
+  case class RetrieveStatusResult(status: CounterStatus)
 
-  def props()(implicit session: SlickSession, ec: ExecutionContext, t: Timeout): Props = Props(new WordCounterActor)
+  def props(statusService: SnapshotService[Future])(implicit
+      session: SlickSession,
+      ec: ExecutionContext,
+      t: Timeout
+  ): Props = Props(new WordCounterActor(statusService))
+
 }

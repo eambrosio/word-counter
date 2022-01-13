@@ -20,7 +20,7 @@ class CounterEndpointSpec
   it should "return an empty json when no previous status found" in {
     Given("a counter endpoint")
     And("a service which returns no previous status")
-    val endpoint = CounterEndpoint(emptyStatusService)
+    val endpoint = CounterEndpoint(emptyCounterService)
 
     When("we perform a GET request to /counter")
 
@@ -35,7 +35,7 @@ class CounterEndpointSpec
   it should "return a json containing the same data as in the previous status found" in {
     Given("a counter endpoint")
     And("a service which returns a previous status")
-    val endpoint = CounterEndpoint(nonEmptyStatusService)
+    val endpoint = CounterEndpoint(nonEmptyCounterService)
 
     When("we perform a GET request to /counter")
 
@@ -50,7 +50,7 @@ class CounterEndpointSpec
   it should "retur d" in {
     Given("a counter endpoint")
     And("a service which returns a previous status")
-    val endpoint = CounterEndpoint(failingStatusService)
+    val endpoint = CounterEndpoint(failingCounterService)
 
     When("we perform a GET request to /counter")
 
@@ -64,7 +64,7 @@ class CounterEndpointSpec
   it should "fail when invalid path is requested" in {
     Given("a counter endpoint")
     And("a service which returns a previous status")
-    val endpoint = CounterEndpoint(nonEmptyStatusService)
+    val endpoint = CounterEndpoint(nonEmptyCounterService)
 
     When("we perform a GET request to /invalid-path")
 
